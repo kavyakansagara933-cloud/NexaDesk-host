@@ -30,7 +30,7 @@ socket.addEventListener("message", (event) => {
   }
 
   if (msg.type === "peer-joined") {
-    statusEl.textContent = "Device connected! (WebRTC setup comes in step 2c)";
+    statusEl.textContent = "Device connected! ";
   }
 
   if (msg.type === "peer-disconnected") {

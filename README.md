@@ -1,4 +1,4 @@
-# Macky Host (Electron) — Step 2a
+# Macky Host (Electron) — Step 
 
 This is the first slice of the Electron host app: it connects to the
 deployed signaling server, registers as a host, and displays the pairing
@@ -37,7 +37,7 @@ wscat -c wss://macky-signaling-server.onrender.com
 The Electron window's status text should update to
 "Device connected! (WebRTC setup comes in step 2c)".
 
-## Next step (2b)
+## Next step 
 
 Add screen capture using Electron's `desktopCapturer` API and preview it in
 a small window inside the app, before we try sending it anywhere.
