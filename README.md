@@ -1,4 +1,4 @@
-# Macky Host (Electron) — Step 
+# Macky Host (Electron)  
 
 This is the first slice of the Electron host app: it connects to the
 deployed signaling server, registers as a host, and displays the pairing
