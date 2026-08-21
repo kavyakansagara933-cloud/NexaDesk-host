@@ -1,0 +1,12 @@
+{
+  "name": "macky-host",
+  "version": "1.0.0",
+  "description": "Electron host app for Macky - captures the Windows desktop and streams it to a paired Android client via WebRTC.",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "electron ."
+  },
+  "devDependencies": {
+    "electron": "^31.0.0"
+  }
+}
