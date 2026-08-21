@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <title>Macky Host</title>
+
   <style>
     body {
       font-family: -apple-system, "Segoe UI", sans-serif;
@@ -15,6 +16,7 @@
       height: 100vh;
       margin: 0;
     }
+
     h1 {
       font-size: 16px;
       font-weight: 600;
@@ -23,11 +25,13 @@
       text-transform: uppercase;
       margin-bottom: 24px;
     }
+
     #status {
       font-size: 13px;
       color: #8a8a9a;
       margin-bottom: 16px;
     }
+
     #code {
       font-size: 42px;
       font-weight: 700;
@@ -35,6 +39,7 @@
       color: #7c9eff;
       font-family: "Consolas", monospace;
     }
+
     #hint {
       font-size: 12px;
       color: #6a6a7a;
@@ -42,13 +47,29 @@
       max-width: 300px;
       text-align: center;
     }
+
+    #preview {
+      margin-top: 20px;
+      width: 320px;
+      border-radius: 6px;
+      border: 1px solid #2a2a35;
+      display: none;
+    }
   </style>
 </head>
+
 <body>
   <h1>Macky Host</h1>
+
   <div id="status">Connecting to signaling server...</div>
+
   <div id="code">------</div>
-  <div id="hint">Enter this code in the Macky Android app to pair.</div>
+
+  <div id="hint">
+    Enter this code in the Macky Android app to pair.
+  </div>
+
+  <video id="preview" autoplay muted></video>
 
   <script src="renderer.js"></script>
 </body>
