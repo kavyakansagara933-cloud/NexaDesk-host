@@ -39,14 +39,92 @@ async function startScreenCapture() {
  * that screen capture works. In Milestone 2C, this stream will be
  * passed into the WebRTC connection after a device pairs.
  */
-startScreenCapture().catch((err) => {
-  console.error("Screen capture failed:", err);
+let screenStream = null;
+let peerConnection = null;
 
-  statusEl.textContent =
-    "Screen capture failed - see console (Ctrl+Shift+I)";
-});
+const RTC_CONFIG = {
+  iceServers: [
+    {
+      urls: "stun:stun.l.google.com:19302",
+    },
+  ],
+};
 
+startScreenCapture()
+  .then((stream) => {
+    screenStream = stream;
+    console.log("Screen capture ready.");
+  })
+  .catch((err) => {
+    console.error("Screen capture failed:", err);
 
+    statusEl.textContent =
+      "Screen capture failed - see console (Ctrl+Shift+I)";
+  });
+
+async function createPeerConnection() {
+  if (!screenStream) {
+    throw new Error("Screen capture is not ready yet.");
+  }
+
+  // Close any previous connection before creating a new one
+  if (peerConnection) {
+    peerConnection.close();
+  }
+
+  peerConnection = new RTCPeerConnection(RTC_CONFIG);
+
+  // Add the captured screen tracks to the WebRTC connection
+  screenStream.getTracks().forEach((track) => {
+    peerConnection.addTrack(track, screenStream);
+  });
+
+    peerConnection.addEventListener("connectionstatechange", () => {
+    console.log(
+      "WebRTC connection state:",
+      peerConnection.connectionState
+    );
+  });
+
+  // Whenever the browser discovers a possible network path to reach us,
+  // it fires this event. We forward each candidate to the other peer
+  // through the signaling server - the answer/client side does the same
+  // thing in reverse once it exists.
+    peerConnection.addEventListener("icecandidate", (event) => {
+    if (event.candidate && socket.readyState === WebSocket.OPEN) {
+      socket.send(
+        JSON.stringify({
+          type: "ice-candidate",
+          candidate: event.candidate,
+        })
+      );
+    }
+  });
+
+  return peerConnection;
+}
+
+/**
+ * Creates an SDP offer describing what we're sending (the screen track),
+ * sets it as our local description, and sends it through the signaling
+ * server to whoever is on the other end of this pairing.
+ */
+async function createAndSendOffer() {
+  const offer = await peerConnection.createOffer();
+  await peerConnection.setLocalDescription(offer);
+
+  if (socket.readyState === WebSocket.OPEN) {
+    socket.send(
+      JSON.stringify({
+        type: "offer",
+        offer: offer,
+      })
+    );
+    console.log("Offer sent.");
+  } else {
+    console.warn("Cannot send offer - signaling socket is not open.");
+  }
+}
 /* ---------------- SIGNALING SERVER ---------------- */
 
 const socket = new WebSocket(SIGNALING_SERVER_URL);
@@ -61,7 +139,7 @@ socket.addEventListener("open", () => {
   );
 });
 
-socket.addEventListener("message", (event) => {
+socket.addEventListener("message", async (event) => {
   const msg = JSON.parse(event.data);
 
   console.log("[received]", msg);
@@ -74,10 +152,25 @@ socket.addEventListener("message", (event) => {
   }
 
   if (msg.type === "peer-joined") {
-    statusEl.textContent =
-      "Device connected! (WebRTC setup comes in step 2C)";
-  }
+  statusEl.textContent =
+    "Device connected. Preparing screen stream...";
 
+    try {
+    await createPeerConnection();
+
+    console.log("WebRTC peer connection created.");
+
+    await createAndSendOffer();
+
+    statusEl.textContent =
+      "Device connected. Establishing secure connection...";
+  } catch (err) {
+    console.error("Failed to create WebRTC connection:", err);
+
+    statusEl.textContent =
+      "Failed to prepare WebRTC connection.";
+  }
+}
   if (msg.type === "peer-disconnected") {
     statusEl.textContent =
       "Device disconnected. Waiting again...";
