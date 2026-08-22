@@ -171,7 +171,26 @@ socket.addEventListener("message", async (event) => {
       "Failed to prepare WebRTC connection.";
   }
 }
-  if (msg.type === "peer-disconnected") {
+    if (msg.type === "answer") {
+    if (peerConnection) {
+      try {
+        await peerConnection.setRemoteDescription(msg.answer);
+        console.log("Remote description (answer) set.");
+      } catch (err) {
+        console.error("Failed to set remote description:", err);
+      }
+    }
+  }
+
+  if (msg.type === "ice-candidate") {
+    if (peerConnection) {
+      try {
+        await peerConnection.addIceCandidate(msg.candidate);
+      } catch (err) {
+        console.error("Failed to add ICE candidate:", err);
+      }
+    }
+  }if (msg.type === "peer-disconnected") {
     statusEl.textContent =
       "Device disconnected. Waiting again...";
   }
