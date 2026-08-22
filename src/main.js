@@ -1,6 +1,10 @@
 const { app, BrowserWindow, ipcMain, desktopCapturer } = require("electron");
 const path = require("path");
-
+const {
+  mouse,
+  Point,
+  straightTo,
+} = require("@nut-tree-fork/nut-js");
 /**
  * Returns the available screens to the renderer.
  * The renderer cannot access Electron's desktopCapturer directly,
@@ -18,7 +22,17 @@ ipcMain.handle("get-screen-sources", async () => {
     thumbnailDataUrl: source.thumbnail.toDataURL(),
   }));
 });
+ipcMain.handle("move-mouse", async (event, x, y) => {
+  console.log(`Moving mouse to: x=${x}, y=${y}`);
 
+  await mouse.move(
+    straightTo(
+      new Point(x, y)
+    )
+  );
+
+  return true;
+});
 function createWindow() {
   const win = new BrowserWindow({
     width: 420,

@@ -41,6 +41,7 @@ async function startScreenCapture() {
  */
 let screenStream = null;
 let peerConnection = null;
+let controlChannel = null;
 
 const RTC_CONFIG = {
   iceServers: [
@@ -73,6 +74,36 @@ async function createPeerConnection() {
   }
 
   peerConnection = new RTCPeerConnection(RTC_CONFIG);
+    controlChannel = peerConnection.createDataChannel("control");
+
+  controlChannel.addEventListener("open", () => {
+    console.log("Control DataChannel opened.");
+  });
+
+controlChannel.addEventListener("message", (event) => {
+  try {
+    const command = JSON.parse(event.data);
+
+    console.log("Control command received:", command);
+
+    if (command.type === "mouse-move") {
+  console.log(
+    `Mouse move received: x=${command.x}, y=${command.y}`
+  );
+
+  window.macky.moveMouse(command.x, command.y)
+    .catch((err) => {
+      console.error("Failed to move mouse:", err);
+    });
+    }
+  } catch (err) {
+    console.error("Invalid control command:", err);
+  }
+});
+
+  controlChannel.addEventListener("close", () => {
+    console.log("Control DataChannel closed.");
+  });
 
   // Add the captured screen tracks to the WebRTC connection
   screenStream.getTracks().forEach((track) => {

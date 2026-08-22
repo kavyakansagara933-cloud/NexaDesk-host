@@ -1,5 +1,9 @@
 const { contextBridge, ipcRenderer } = require("electron");
 
 contextBridge.exposeInMainWorld("macky", {
-  getScreenSources: () => ipcRenderer.invoke("get-screen-sources"),
+  getScreenSources: () =>
+    ipcRenderer.invoke("get-screen-sources"),
+
+  moveMouse: (x, y) =>
+    ipcRenderer.invoke("move-mouse", x, y),
 });
