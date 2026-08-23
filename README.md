@@ -1,32 +1,34 @@
-# Macky Host (Electron)  
+# NexaDesk Host (Electron)
 
-This is the Electron host app: it connects to the deployed signaling server, registers as a host, and displays the pairing code.
+NexaDesk Host is the Windows desktop application for the NexaDesk remote desktop system.
+
+It captures the Windows desktop, connects to the signaling server, generates a pairing code, streams the screen to a paired client using WebRTC, and receives remote mouse-control commands.
+
+## Features
+
+- Host registration with the signaling server
+- Automatic 6-character pairing code generation
+- Windows desktop screen capture
+- Live local screen preview
+- WebRTC peer-to-peer screen streaming
+- WebRTC ICE candidate exchange
+- Secure Electron IPC communication
+- Remote mouse movement through the WebRTC DataChannel
+- Scaled mouse coordinates for accurate remote control
 
 ## Files
 
-- `src/main.js` — Electron's main process. Creates the app window and handles screen-source access.
-- `src/preload.js` — the secure bridge between main and renderer. Exposes the screen-source function through `contextBridge`.
-- `src/index.html` / `src/renderer.js` — the app window content. Connects to the signaling server using the browser's native WebSocket API, shows the pairing code, and previews the captured screen.
+- `src/main.js` — Electron's main process. Creates the application window, handles screen-source access, and moves the Windows mouse.
 
-## Running it
+- `src/preload.js` — Secure bridge between the Electron main process and renderer process. Exposes screen capture and mouse-control functions through `contextBridge`.
+
+- `src/index.html` — The NexaDesk Host application interface.
+
+- `src/renderer.js` — Handles signaling, screen capture, WebRTC streaming, DataChannel communication, and remote control commands.
+
+## Running the Application
+
+First, install the dependencies:
 
 ```bash
 npm install
-npm start
-```
-
-An Electron window should open, connect to the signaling server, display a 6-character pairing code, and show a live preview of the captured screen.
-
-## Signaling server
-
-The host connects to the deployed signaling server at:
-
-```text
-wss://macky-signaling-server.onrender.com
-```
-
-## Current status
-
-- Host registration and pairing-code display are implemented.
-- Screen capture and local preview are implemented.
-- WebRTC screen streaming and remote input control are planned next.
