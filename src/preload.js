@@ -1,6 +1,6 @@
 const { contextBridge, ipcRenderer } = require("electron");
 
-contextBridge.exposeInMainWorld("macky", {
+contextBridge.exposeInMainWorld("nexaDesk", {
   getScreenSources: () =>
     ipcRenderer.invoke("get-screen-sources"),
 
