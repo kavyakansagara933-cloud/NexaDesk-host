@@ -9,7 +9,8 @@ const previewEl = document.getElementById("preview");
  * Gets the available screen from Electron and captures it as a MediaStream.
  */
 async function startScreenCapture() {
-  const sources = await window.macky.getScreenSources();
+  const sources =
+    await window.nexaDesk.getScreenSources();
 
   if (sources.length === 0) {
     throw new Error("No screen sources found.");
@@ -17,16 +18,17 @@ async function startScreenCapture() {
 
   const primaryScreen = sources[0];
 
-  const stream = await navigator.mediaDevices.getUserMedia({
-    audio: false,
+  const stream =
+    await navigator.mediaDevices.getUserMedia({
+      audio: false,
 
-    video: {
-      mandatory: {
-        chromeMediaSource: "desktop",
-        chromeMediaSourceId: primaryScreen.id,
+      video: {
+        mandatory: {
+          chromeMediaSource: "desktop",
+          chromeMediaSourceId: primaryScreen.id,
+        },
       },
-    },
-  });
+    });
 
   previewEl.srcObject = stream;
   previewEl.style.display = "block";
@@ -35,9 +37,8 @@ async function startScreenCapture() {
 }
 
 /**
- * For Milestone 2B, start capturing immediately so we can verify
- * that screen capture works. In Milestone 2C, this stream will be
- * passed into the WebRTC connection after a device pairs.
+ * Screen capture starts immediately so the NexaDesk Host
+ * is ready to create a WebRTC connection when a device pairs.
  */
 let screenStream = null;
 let peerConnection = null;
@@ -57,7 +58,10 @@ startScreenCapture()
     console.log("Screen capture ready.");
   })
   .catch((err) => {
-    console.error("Screen capture failed:", err);
+    console.error(
+      "Screen capture failed:",
+      err
+    );
 
     statusEl.textContent =
       "Screen capture failed - see console (Ctrl+Shift+I)";
@@ -65,174 +69,280 @@ startScreenCapture()
 
 async function createPeerConnection() {
   if (!screenStream) {
-    throw new Error("Screen capture is not ready yet.");
+    throw new Error(
+      "Screen capture is not ready yet."
+    );
   }
 
-  // Close any previous connection before creating a new one
+  // Close any previous connection before creating a new one.
   if (peerConnection) {
     peerConnection.close();
   }
 
-  peerConnection = new RTCPeerConnection(RTC_CONFIG);
-    controlChannel = peerConnection.createDataChannel("control");
+  peerConnection =
+    new RTCPeerConnection(RTC_CONFIG);
 
-  controlChannel.addEventListener("open", () => {
-    console.log("Control DataChannel opened.");
-  });
+  // Create the DataChannel used for remote control commands.
+  controlChannel =
+    peerConnection.createDataChannel("control");
 
-controlChannel.addEventListener("message", (event) => {
-  try {
-    const command = JSON.parse(event.data);
-
-    console.log("Control command received:", command);
-
-    if (command.type === "mouse-move") {
-  console.log(
-    `Mouse move received: x=${command.x}, y=${command.y}`
-  );
-
-  window.macky.moveMouse(command.x, command.y)
-    .catch((err) => {
-      console.error("Failed to move mouse:", err);
-    });
-    }
-  } catch (err) {
-    console.error("Invalid control command:", err);
-  }
-});
-
-  controlChannel.addEventListener("close", () => {
-    console.log("Control DataChannel closed.");
-  });
-
-  // Add the captured screen tracks to the WebRTC connection
-  screenStream.getTracks().forEach((track) => {
-    peerConnection.addTrack(track, screenStream);
-  });
-
-    peerConnection.addEventListener("connectionstatechange", () => {
-    console.log(
-      "WebRTC connection state:",
-      peerConnection.connectionState
-    );
-  });
-
-  // Whenever the browser discovers a possible network path to reach us,
-  // it fires this event. We forward each candidate to the other peer
-  // through the signaling server - the answer/client side does the same
-  // thing in reverse once it exists.
-    peerConnection.addEventListener("icecandidate", (event) => {
-    if (event.candidate && socket.readyState === WebSocket.OPEN) {
-      socket.send(
-        JSON.stringify({
-          type: "ice-candidate",
-          candidate: event.candidate,
-        })
+  controlChannel.addEventListener(
+    "open",
+    () => {
+      console.log(
+        "Control DataChannel opened."
       );
     }
-  });
+  );
+
+  controlChannel.addEventListener(
+    "message",
+    (event) => {
+      try {
+        const command =
+          JSON.parse(event.data);
+
+        console.log(
+          "Control command received:",
+          command
+        );
+
+        if (
+          command.type === "mouse-move"
+        ) {
+          console.log(
+            `Mouse move received: x=${command.x}, y=${command.y}`
+          );
+
+          window.nexaDesk
+            .moveMouse(
+              command.x,
+              command.y
+            )
+            .catch((err) => {
+              console.error(
+                "Failed to move mouse:",
+                err
+              );
+            });
+        }
+      } catch (err) {
+        console.error(
+          "Invalid control command:",
+          err
+        );
+      }
+    }
+  );
+
+  controlChannel.addEventListener(
+    "close",
+    () => {
+      console.log(
+        "Control DataChannel closed."
+      );
+    }
+  );
+
+  // Add the captured screen tracks to the WebRTC connection.
+  screenStream
+    .getTracks()
+    .forEach((track) => {
+      peerConnection.addTrack(
+        track,
+        screenStream
+      );
+    });
+
+  peerConnection.addEventListener(
+    "connectionstatechange",
+    () => {
+      console.log(
+        "WebRTC connection state:",
+        peerConnection.connectionState
+      );
+    }
+  );
+
+  // Forward ICE candidates to the paired client through signaling.
+  peerConnection.addEventListener(
+    "icecandidate",
+    (event) => {
+      if (
+        event.candidate &&
+        socket.readyState === WebSocket.OPEN
+      ) {
+        socket.send(
+          JSON.stringify({
+            type: "ice-candidate",
+            candidate:
+              event.candidate,
+          })
+        );
+      }
+    }
+  );
 
   return peerConnection;
 }
 
 /**
- * Creates an SDP offer describing what we're sending (the screen track),
- * sets it as our local description, and sends it through the signaling
- * server to whoever is on the other end of this pairing.
+ * Creates an SDP offer describing the captured screen,
+ * then sends it to the paired NexaDesk client.
  */
 async function createAndSendOffer() {
-  const offer = await peerConnection.createOffer();
-  await peerConnection.setLocalDescription(offer);
+  const offer =
+    await peerConnection.createOffer();
 
-  if (socket.readyState === WebSocket.OPEN) {
+  await peerConnection.setLocalDescription(
+    offer
+  );
+
+  if (
+    socket.readyState === WebSocket.OPEN
+  ) {
     socket.send(
       JSON.stringify({
         type: "offer",
         offer: offer,
       })
     );
+
     console.log("Offer sent.");
   } else {
-    console.warn("Cannot send offer - signaling socket is not open.");
+    console.warn(
+      "Cannot send offer - signaling socket is not open."
+    );
   }
 }
+
 /* ---------------- SIGNALING SERVER ---------------- */
 
-const socket = new WebSocket(SIGNALING_SERVER_URL);
+const socket =
+  new WebSocket(SIGNALING_SERVER_URL);
 
-socket.addEventListener("open", () => {
-  statusEl.textContent = "Connected. Registering as host...";
-
-  socket.send(
-    JSON.stringify({
-      type: "host-register",
-    })
-  );
-});
-
-socket.addEventListener("message", async (event) => {
-  const msg = JSON.parse(event.data);
-
-  console.log("[received]", msg);
-
-  if (msg.type === "host-registered") {
+socket.addEventListener(
+  "open",
+  () => {
     statusEl.textContent =
-      "Waiting for a device to connect...";
+      "Connected. Registering as host...";
 
-    codeEl.textContent = msg.code;
+    socket.send(
+      JSON.stringify({
+        type: "host-register",
+      })
+    );
   }
+);
 
-  if (msg.type === "peer-joined") {
-  statusEl.textContent =
-    "Device connected. Preparing screen stream...";
+socket.addEventListener(
+  "message",
+  async (event) => {
+    const msg =
+      JSON.parse(event.data);
 
-    try {
-    await createPeerConnection();
+    console.log(
+      "[received]",
+      msg
+    );
 
-    console.log("WebRTC peer connection created.");
+    if (
+      msg.type === "host-registered"
+    ) {
+      statusEl.textContent =
+        "Waiting for a device to connect...";
 
-    await createAndSendOffer();
+      codeEl.textContent =
+        msg.code;
+    }
 
-    statusEl.textContent =
-      "Device connected. Establishing secure connection...";
-  } catch (err) {
-    console.error("Failed to create WebRTC connection:", err);
+    if (
+      msg.type === "peer-joined"
+    ) {
+      statusEl.textContent =
+        "Device connected. Preparing screen stream...";
 
-    statusEl.textContent =
-      "Failed to prepare WebRTC connection.";
-  }
-}
-    if (msg.type === "answer") {
-    if (peerConnection) {
       try {
-        await peerConnection.setRemoteDescription(msg.answer);
-        console.log("Remote description (answer) set.");
+        await createPeerConnection();
+
+        console.log(
+          "WebRTC peer connection created."
+        );
+
+        await createAndSendOffer();
+
+        statusEl.textContent =
+          "Device connected. Establishing secure connection...";
       } catch (err) {
-        console.error("Failed to set remote description:", err);
+        console.error(
+          "Failed to create WebRTC connection:",
+          err
+        );
+
+        statusEl.textContent =
+          "Failed to prepare WebRTC connection.";
       }
     }
-  }
 
-  if (msg.type === "ice-candidate") {
-    if (peerConnection) {
-      try {
-        await peerConnection.addIceCandidate(msg.candidate);
-      } catch (err) {
-        console.error("Failed to add ICE candidate:", err);
+    if (
+      msg.type === "answer"
+    ) {
+      if (peerConnection) {
+        try {
+          await peerConnection.setRemoteDescription(
+            msg.answer
+          );
+
+          console.log(
+            "Remote description (answer) set."
+          );
+        } catch (err) {
+          console.error(
+            "Failed to set remote description:",
+            err
+          );
+        }
       }
     }
-  }if (msg.type === "peer-disconnected") {
-    statusEl.textContent =
-      "Device disconnected. Waiting again...";
+
+    if (
+      msg.type === "ice-candidate"
+    ) {
+      if (peerConnection) {
+        try {
+          await peerConnection.addIceCandidate(
+            msg.candidate
+          );
+        } catch (err) {
+          console.error(
+            "Failed to add ICE candidate:",
+            err
+          );
+        }
+      }
+    }
+
+    if (
+      msg.type === "peer-disconnected"
+    ) {
+      statusEl.textContent =
+        "Device disconnected. Waiting again...";
+    }
   }
-});
+);
 
-socket.addEventListener("close", () => {
-  statusEl.textContent =
-    "Disconnected from signaling server.";
-});
+socket.addEventListener(
+  "close",
+  () => {
+    statusEl.textContent =
+      "Disconnected from signaling server.";
+  }
+);
 
-socket.addEventListener("error", () => {
-  statusEl.textContent =
-    "Connection error - check the server URL and your internet.";
-});
+socket.addEventListener(
+  "error",
+  () => {
+    statusEl.textContent =
+      "Connection error - check the server URL and your internet.";
+  }
+);
