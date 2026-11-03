@@ -126,6 +126,74 @@ async function createPeerConnection() {
               );
             });
         }
+
+        if (
+          command.type === "mouse-click"
+        ) {
+          console.log(
+            "Mouse click received."
+          );
+
+          window.nexaDesk
+            .clickMouse()
+            .catch((err) => {
+              console.error(
+                "Failed to perform mouse click:",
+                err
+              );
+            });
+        }
+
+        if (
+          command.type === "mouse-right-click"
+        ) {
+          console.log(
+            "Mouse right-click received."
+          );
+
+          window.nexaDesk
+            .rightClickMouse()
+            .catch((err) => {
+              console.error(
+                "Failed to perform right click:",
+                err
+              );
+            });
+        }
+
+        if (
+          command.type === "mouse-double-click"
+        ) {
+          console.log(
+            "Mouse double-click received."
+          );
+
+          window.nexaDesk
+            .doubleClickMouse()
+            .catch((err) => {
+              console.error(
+                "Failed to perform double click:",
+                err
+              );
+            });
+        }
+
+        if (
+          command.type === "mouse-scroll"
+        ) {
+          console.log(
+            `Mouse scroll received: amount=${command.amount}`
+          );
+
+          window.nexaDesk
+            .scrollMouse(command.amount)
+            .catch((err) => {
+              console.error(
+                "Failed to scroll:",
+                err
+              );
+            });
+        }
       } catch (err) {
         console.error(
           "Invalid control command:",
@@ -340,7 +408,7 @@ socket.addEventListener(
 );
 
 socket.addEventListener(
-  "error",
+   "error",
   () => {
     statusEl.textContent =
       "Connection error - check the server URL and your internet.";
