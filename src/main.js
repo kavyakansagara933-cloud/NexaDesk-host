@@ -143,16 +143,33 @@ ipcMain.handle(
 
 /* ---------------- MOUSE SCROLL ---------------- */
 
+/**
+ * The amount is signed:
+ *   positive -> scroll down
+ *   negative -> scroll up
+ */
 ipcMain.handle(
   "scroll-mouse",
   async (event, amount) => {
-    console.log(
-      `Scrolling mouse: ${amount}`
-    );
+    const steps = Math.round(Number(amount));
 
-    await mouse.scrollDown(
-      amount
-    );
+    if (!Number.isFinite(steps) || steps === 0) {
+      return false;
+    }
+
+    if (steps > 0) {
+      console.log(
+        `Scrolling down: ${steps}`
+      );
+
+      await mouse.scrollDown(steps);
+    } else {
+      console.log(
+        `Scrolling up: ${Math.abs(steps)}`
+      );
+
+      await mouse.scrollUp(Math.abs(steps));
+    }
 
     return true;
   }
