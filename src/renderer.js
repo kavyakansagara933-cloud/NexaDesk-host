@@ -194,6 +194,40 @@ async function createPeerConnection() {
               );
             });
         }
+
+        if (
+          command.type === "mouse-down"
+        ) {
+          console.log(
+            "Mouse button down received."
+          );
+
+          window.nexaDesk
+            .mouseDown()
+            .catch((err) => {
+              console.error(
+                "Failed to press mouse button:",
+                err
+              );
+            });
+        }
+
+        if (
+          command.type === "mouse-up"
+        ) {
+          console.log(
+            "Mouse button up received."
+          );
+
+          window.nexaDesk
+            .mouseUp()
+            .catch((err) => {
+              console.error(
+                "Failed to release mouse button:",
+                err
+              );
+            });
+        }
       } catch (err) {
         console.error(
           "Invalid control command:",
@@ -209,6 +243,17 @@ async function createPeerConnection() {
       console.log(
         "Control DataChannel closed."
       );
+
+      // Release the mouse button in case the client
+      // disconnected in the middle of a drag.
+      window.nexaDesk
+        .mouseUp()
+        .catch((err) => {
+          console.error(
+            "Failed to release mouse button on close:",
+            err
+          );
+        });
     }
   );
 
@@ -408,7 +453,7 @@ socket.addEventListener(
 );
 
 socket.addEventListener(
-   "error",
+  "error",
   () => {
     statusEl.textContent =
       "Connection error - check the server URL and your internet.";
