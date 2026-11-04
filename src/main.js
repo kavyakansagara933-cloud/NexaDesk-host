@@ -11,8 +11,34 @@ const {
   mouse,
   Button,
   Point,
-  straightTo,
 } = require("@nut-tree-fork/nut-js");
+
+
+/* ---------------- PERFORMANCE ---------------- */
+
+/**
+ * While someone controls this PC remotely, the NexaDesk Host window is
+ * almost always covered by other apps. Chromium treats covered or
+ * background windows as "not visible" and slows them down (timers,
+ * rendering, message handling), which makes remote control lag badly.
+ * These switches tell Chromium to keep running at full speed.
+ *
+ * They must be set before the app is ready.
+ */
+app.commandLine.appendSwitch("disable-renderer-backgrounding");
+app.commandLine.appendSwitch("disable-background-timer-throttling");
+app.commandLine.appendSwitch("disable-backgrounding-occluded-windows");
+app.commandLine.appendSwitch(
+  "disable-features",
+  "CalculateNativeWinOcclusion"
+);
+
+/**
+ * nut-js adds a 100 ms pause after every mouse action by default,
+ * which makes remote control feel slow and out of order.
+ * Remote control needs every action to happen immediately.
+ */
+mouse.config.autoDelayMs = 0;
 
 
 ipcMain.handle(
@@ -39,16 +65,20 @@ ipcMain.handle(
 
 /* ---------------- MOUSE MOVEMENT ---------------- */
 
+/**
+ * Jumps the cursor straight to the requested position.
+ *
+ * mouse.move(straightTo(...)) ANIMATES the cursor along a path, and
+ * the client sends many positions per second, so many animations ran
+ * at once and fought each other. setPosition moves instantly.
+ */
 ipcMain.handle(
   "move-mouse",
   async (event, x, y) => {
-    console.log(
-      `Moving mouse to: x=${x}, y=${y}`
-    );
-
-    await mouse.move(
-      straightTo(
-        new Point(x, y)
+    await mouse.setPosition(
+      new Point(
+        Math.round(x),
+        Math.round(y)
       )
     );
 
@@ -158,16 +188,8 @@ ipcMain.handle(
     }
 
     if (steps > 0) {
-      console.log(
-        `Scrolling down: ${steps}`
-      );
-
       await mouse.scrollDown(steps);
     } else {
-      console.log(
-        `Scrolling up: ${Math.abs(steps)}`
-      );
-
       await mouse.scrollUp(Math.abs(steps));
     }
 
@@ -194,6 +216,10 @@ function createWindow() {
 
         contextIsolation: true,
         nodeIntegration: false,
+
+        // Keep the window running at full speed even when it is
+        // covered or minimized (see the PERFORMANCE section above).
+        backgroundThrottling: false,
       },
     });
 
