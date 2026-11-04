@@ -9,9 +9,12 @@ const path = require("path");
 
 const {
   mouse,
+  keyboard,
   Button,
   Point,
 } = require("@nut-tree-fork/nut-js");
+
+const { keyFromCode } = require("./keymap");
 
 
 /* ---------------- PERFORMANCE ---------------- */
@@ -39,6 +42,7 @@ app.commandLine.appendSwitch(
  * Remote control needs every action to happen immediately.
  */
 mouse.config.autoDelayMs = 0;
+keyboard.config.autoDelayMs = 0;
 
 
 ipcMain.handle(
@@ -191,6 +195,65 @@ ipcMain.handle(
       await mouse.scrollDown(steps);
     } else {
       await mouse.scrollUp(Math.abs(steps));
+    }
+
+    return true;
+  }
+);
+
+
+/* ---------------- KEYBOARD ---------------- */
+
+/**
+ * Keys currently held down on this PC by the remote user.
+ * Tracked so they can all be released if the connection drops,
+ * otherwise a key like Shift or Ctrl could stay stuck down.
+ */
+const heldKeys = new Set();
+
+ipcMain.handle(
+  "key-down",
+  async (event, code) => {
+    const key = keyFromCode(code);
+
+    // Ignore keys we don't know how to press.
+    if (key === undefined) {
+      return false;
+    }
+
+    heldKeys.add(key);
+    await keyboard.pressKey(key);
+
+    return true;
+  }
+);
+
+
+ipcMain.handle(
+  "key-up",
+  async (event, code) => {
+    const key = keyFromCode(code);
+
+    if (key === undefined) {
+      return false;
+    }
+
+    heldKeys.delete(key);
+    await keyboard.releaseKey(key);
+
+    return true;
+  }
+);
+
+
+ipcMain.handle(
+  "release-all-keys",
+  async () => {
+    const keys = [...heldKeys];
+    heldKeys.clear();
+
+    for (const key of keys) {
+      await keyboard.releaseKey(key);
     }
 
     return true;
