@@ -10,6 +10,7 @@ const path = require("path");
 const {
   mouse,
   keyboard,
+  screen,
   Button,
   Point,
 } = require("@nut-tree-fork/nut-js");
@@ -70,6 +71,32 @@ ipcMain.handle(
 /* ---------------- MOUSE MOVEMENT ---------------- */
 
 /**
+ * The client sends positions as fractions of the video:
+ * x and y between 0 and 1 (0 = left/top edge, 1 = right/bottom edge).
+ * Here they are converted into real pixels on THIS screen, using the
+ * same screen size nut-js moves the cursor in. That makes the cursor
+ * accurate regardless of the video's resolution or Windows scaling.
+ */
+let screenSize = null;
+let screenSizeTime = 0;
+
+// The size is cached because it rarely changes; it is re-read every
+// few seconds in case the display resolution is changed.
+async function getScreenSize() {
+  const now = Date.now();
+
+  if (!screenSize || now - screenSizeTime > 3000) {
+    screenSize = {
+      width: await screen.width(),
+      height: await screen.height(),
+    };
+    screenSizeTime = now;
+  }
+
+  return screenSize;
+}
+
+/**
  * Jumps the cursor straight to the requested position.
  *
  * mouse.move(straightTo(...)) ANIMATES the cursor along a path, and
@@ -79,12 +106,26 @@ ipcMain.handle(
 ipcMain.handle(
   "move-mouse",
   async (event, x, y) => {
-    await mouse.setPosition(
-      new Point(
-        Math.round(x),
-        Math.round(y)
-      )
+    const nx = Number(x);
+    const ny = Number(y);
+
+    if (!Number.isFinite(nx) || !Number.isFinite(ny)) {
+      return false;
+    }
+
+    const { width, height } = await getScreenSize();
+
+    // Fraction -> pixel, kept inside the screen (last pixel is width - 1).
+    const px = Math.min(
+      width - 1,
+      Math.max(0, Math.round(nx * (width - 1)))
     );
+    const py = Math.min(
+      height - 1,
+      Math.max(0, Math.round(ny * (height - 1)))
+    );
+
+    await mouse.setPosition(new Point(px, py));
 
     return true;
   }
