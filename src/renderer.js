@@ -67,6 +67,107 @@ startScreenCapture()
       "Screen capture failed - see console (Ctrl+Shift+I)";
   });
 
+
+/* ---------------- CONTROL COMMAND QUEUE ---------------- */
+
+/**
+ * Remote control commands are run one at a time, in the order they
+ * arrived, so a click can never run before the move that came first.
+ *
+ * If several mouse-move commands are waiting, only the newest one
+ * matters (the older positions are already out of date), so a waiting
+ * move is replaced instead of queued. This stops a backlog from
+ * building up, which is what made the cursor fall further and further
+ * behind.
+ */
+const commandQueue = [];
+let processingQueue = false;
+
+function enqueueCommand(command) {
+  const last =
+    commandQueue[commandQueue.length - 1];
+
+  if (
+    command.type === "mouse-move" &&
+    last &&
+    last.type === "mouse-move"
+  ) {
+    commandQueue[commandQueue.length - 1] =
+      command;
+  } else {
+    commandQueue.push(command);
+  }
+
+  if (!processingQueue) {
+    processCommandQueue();
+  }
+}
+
+async function processCommandQueue() {
+  processingQueue = true;
+
+  while (commandQueue.length > 0) {
+    const command = commandQueue.shift();
+
+    try {
+      await runCommand(command);
+    } catch (err) {
+      console.error(
+        `Failed to run "${command.type}":`,
+        err
+      );
+    }
+  }
+
+  processingQueue = false;
+}
+
+async function runCommand(command) {
+  switch (command.type) {
+    case "mouse-move":
+      await window.nexaDesk.moveMouse(
+        command.x,
+        command.y
+      );
+      break;
+
+    case "mouse-click":
+      await window.nexaDesk.clickMouse();
+      break;
+
+    case "mouse-right-click":
+      await window.nexaDesk.rightClickMouse();
+      break;
+
+    case "mouse-double-click":
+      await window.nexaDesk.doubleClickMouse();
+      break;
+
+    case "mouse-scroll":
+      await window.nexaDesk.scrollMouse(
+        command.amount
+      );
+      break;
+
+    case "mouse-down":
+      await window.nexaDesk.mouseDown();
+      break;
+
+    case "mouse-up":
+      await window.nexaDesk.mouseUp();
+      break;
+
+    default:
+      console.warn(
+        "Unknown control command:",
+        command.type
+      );
+  }
+}
+
+
+/* ---------------- WEBRTC ---------------- */
+
 async function createPeerConnection() {
   if (!screenStream) {
     throw new Error(
@@ -99,135 +200,9 @@ async function createPeerConnection() {
     "message",
     (event) => {
       try {
-        const command =
-          JSON.parse(event.data);
-
-        console.log(
-          "Control command received:",
-          command
+        enqueueCommand(
+          JSON.parse(event.data)
         );
-
-        if (
-          command.type === "mouse-move"
-        ) {
-          console.log(
-            `Mouse move received: x=${command.x}, y=${command.y}`
-          );
-
-          window.nexaDesk
-            .moveMouse(
-              command.x,
-              command.y
-            )
-            .catch((err) => {
-              console.error(
-                "Failed to move mouse:",
-                err
-              );
-            });
-        }
-
-        if (
-          command.type === "mouse-click"
-        ) {
-          console.log(
-            "Mouse click received."
-          );
-
-          window.nexaDesk
-            .clickMouse()
-            .catch((err) => {
-              console.error(
-                "Failed to perform mouse click:",
-                err
-              );
-            });
-        }
-
-        if (
-          command.type === "mouse-right-click"
-        ) {
-          console.log(
-            "Mouse right-click received."
-          );
-
-          window.nexaDesk
-            .rightClickMouse()
-            .catch((err) => {
-              console.error(
-                "Failed to perform right click:",
-                err
-              );
-            });
-        }
-
-        if (
-          command.type === "mouse-double-click"
-        ) {
-          console.log(
-            "Mouse double-click received."
-          );
-
-          window.nexaDesk
-            .doubleClickMouse()
-            .catch((err) => {
-              console.error(
-                "Failed to perform double click:",
-                err
-              );
-            });
-        }
-
-        if (
-          command.type === "mouse-scroll"
-        ) {
-          console.log(
-            `Mouse scroll received: amount=${command.amount}`
-          );
-
-          window.nexaDesk
-            .scrollMouse(command.amount)
-            .catch((err) => {
-              console.error(
-                "Failed to scroll:",
-                err
-              );
-            });
-        }
-
-        if (
-          command.type === "mouse-down"
-        ) {
-          console.log(
-            "Mouse button down received."
-          );
-
-          window.nexaDesk
-            .mouseDown()
-            .catch((err) => {
-              console.error(
-                "Failed to press mouse button:",
-                err
-              );
-            });
-        }
-
-        if (
-          command.type === "mouse-up"
-        ) {
-          console.log(
-            "Mouse button up received."
-          );
-
-          window.nexaDesk
-            .mouseUp()
-            .catch((err) => {
-              console.error(
-                "Failed to release mouse button:",
-                err
-              );
-            });
-        }
       } catch (err) {
         console.error(
           "Invalid control command:",
@@ -243,6 +218,9 @@ async function createPeerConnection() {
       console.log(
         "Control DataChannel closed."
       );
+
+      // Forget any commands still waiting.
+      commandQueue.length = 0;
 
       // Release the mouse button in case the client
       // disconnected in the middle of a drag.
@@ -297,6 +275,35 @@ async function createPeerConnection() {
   );
 
   return peerConnection;
+}
+
+/**
+ * Raises the video bitrate cap. The default cap is low for a full
+ * screen, which makes the encoder blur or drop frames when things move.
+ * Chrome still lowers the real bitrate automatically on a slow network.
+ */
+async function raiseVideoBitrate() {
+  for (const sender of peerConnection.getSenders()) {
+    if (
+      !sender.track ||
+      sender.track.kind !== "video"
+    ) {
+      continue;
+    }
+
+    const params = sender.getParameters();
+
+    if (
+      !params.encodings ||
+      params.encodings.length === 0
+    ) {
+      params.encodings = [{}];
+    }
+
+    params.encodings[0].maxBitrate = 8000000;
+
+    await sender.setParameters(params);
+  }
 }
 
 /**
@@ -356,7 +363,7 @@ socket.addEventListener(
 
     console.log(
       "[received]",
-      msg
+      msg.type
     );
 
     if (
@@ -409,6 +416,8 @@ socket.addEventListener(
           console.log(
             "Remote description (answer) set."
           );
+
+          await raiseVideoBitrate();
         } catch (err) {
           console.error(
             "Failed to set remote description:",
