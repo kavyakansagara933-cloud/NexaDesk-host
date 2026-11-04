@@ -157,6 +157,14 @@ async function runCommand(command) {
       await window.nexaDesk.mouseUp();
       break;
 
+    case "key-down":
+      await window.nexaDesk.keyDown(command.code);
+      break;
+
+    case "key-up":
+      await window.nexaDesk.keyUp(command.code);
+      break;
+
     default:
       console.warn(
         "Unknown control command:",
@@ -229,6 +237,16 @@ async function createPeerConnection() {
         .catch((err) => {
           console.error(
             "Failed to release mouse button on close:",
+            err
+          );
+        });
+
+      // Release any keys still held down so none stay stuck.
+      window.nexaDesk
+        .releaseAllKeys()
+        .catch((err) => {
+          console.error(
+            "Failed to release keys on close:",
             err
           );
         });
