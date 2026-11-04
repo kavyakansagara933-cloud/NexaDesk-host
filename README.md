@@ -32,15 +32,6 @@ First, install the dependencies:
 
 ```bash
 npm install
-## Copyright
-
-Copyright © 2026 Kavya Kansagara. All Rights Reserved.
-
-Developed by Kavya Kansagara.
-
-This project is provided for portfolio and educational viewing purposes only. Copying, redistribution, modification, or commercial use requires prior written permission from the copyright owner.
-
-Original repository: https://github.com/kavyakansagara933-cloud/NexaDesk-host
 ```
 
 ## Copyright
