@@ -296,11 +296,23 @@ async function createPeerConnection() {
 }
 
 /**
- * Raises the video bitrate cap. The default cap is low for a full
- * screen, which makes the encoder blur or drop frames when things move.
- * Chrome still lowers the real bitrate automatically on a slow network.
+ * Video quality limits.
+ *
+ * The browser's congestion control keeps raising the bitrate until the
+ * Wi-Fi link is full. A phone on Wi-Fi then builds up a queue of video
+ * and the picture falls further and further behind. Capping the
+ * bitrate, frame rate and size keeps the stream light enough to stay
+ * real-time. Raise these for a sharper picture on a fast connection,
+ * lower them if the picture still lags.
+ *
+ * Shrinking the picture is safe because mouse positions are sent as
+ * fractions of the screen, not as pixels.
  */
-async function raiseVideoBitrate() {
+const VIDEO_MAX_BITRATE = 3000000; // bits per second (3 Mbps)
+const VIDEO_MAX_FRAMERATE = 30; // frames per second
+const VIDEO_MAX_WIDTH = 1280; // pixels; larger screens are scaled down
+
+async function applyVideoLimits() {
   for (const sender of peerConnection.getSenders()) {
     if (
       !sender.track ||
@@ -318,9 +330,27 @@ async function raiseVideoBitrate() {
       params.encodings = [{}];
     }
 
-    params.encodings[0].maxBitrate = 8000000;
+    const encoding = params.encodings[0];
+
+    encoding.maxBitrate = VIDEO_MAX_BITRATE;
+    encoding.maxFramerate = VIDEO_MAX_FRAMERATE;
+
+    // Scale big screens down (e.g. 1920 wide -> 1280 wide).
+    const captureWidth = sender.track.getSettings().width;
+
+    if (captureWidth && captureWidth > VIDEO_MAX_WIDTH) {
+      encoding.scaleResolutionDownBy =
+        captureWidth / VIDEO_MAX_WIDTH;
+    }
 
     await sender.setParameters(params);
+
+    console.log(
+      "Video limits applied:",
+      VIDEO_MAX_BITRATE / 1000000 + " Mbps,",
+      VIDEO_MAX_FRAMERATE + " fps,",
+      "capture width " + captureWidth
+    );
   }
 }
 
@@ -435,7 +465,7 @@ socket.addEventListener(
             "Remote description (answer) set."
           );
 
-          await raiseVideoBitrate();
+          await applyVideoLimits();
         } catch (err) {
           console.error(
             "Failed to set remote description:",
