@@ -287,6 +287,35 @@ ipcMain.handle(
 );
 
 
+/**
+ * Types a piece of text exactly as written (letters, capitals,
+ * numbers, symbols). Used by the phone's on-screen keyboard.
+ * Unlike key-down / key-up this doesn't need to know which physical
+ * key makes each character.
+ */
+ipcMain.handle(
+  "type-text",
+  async (event, text) => {
+    if (typeof text !== "string" || text.length === 0) {
+      return false;
+    }
+
+    // Keep one message from typing forever.
+    const safeText = text.slice(0, 200);
+
+    try {
+      await keyboard.type(safeText);
+    } catch (err) {
+      // A character that can't be typed shouldn't stop the rest.
+      console.error("Could not type text:", err.message);
+      return false;
+    }
+
+    return true;
+  }
+);
+
+
 ipcMain.handle(
   "release-all-keys",
   async () => {
