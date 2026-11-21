@@ -165,6 +165,10 @@ async function runCommand(command) {
       await window.nexaDesk.keyUp(command.code);
       break;
 
+    case "key-text":
+      await window.nexaDesk.typeText(command.text);
+      break;
+
     default:
       console.warn(
         "Unknown control command:",
