@@ -25,6 +25,8 @@ contextBridge.exposeInMainWorld("nexaDesk", {
     ipcRenderer.invoke("key-down", code),
   keyUp: (code) =>
     ipcRenderer.invoke("key-up", code),
+  typeText: (text) =>
+    ipcRenderer.invoke("type-text", text),
   releaseAllKeys: () =>
     ipcRenderer.invoke("release-all-keys"),
 });
