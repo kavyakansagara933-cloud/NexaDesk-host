@@ -43,7 +43,33 @@ app.commandLine.appendSwitch(
  * Remote control needs every action to happen immediately.
  */
 mouse.config.autoDelayMs = 0;
-keyboard.config.autoDelayMs = 0;
+
+/**
+ * Pause (in milliseconds) between key presses.
+ *
+ * nut-js starts with a 300 ms pause after EVERY key, which makes remote
+ * typing very slow: text piles up and arrives late and out of step
+ * with mouse moves. A few milliseconds is enough for Windows apps to
+ * keep up, and it keeps every key reliable.
+ *
+ * nut-js only applies keyboard.config.autoDelayMs to its own sleep.
+ * The native layer's delay was set once, at start-up, to the old 300 ms
+ * and has to be set separately.
+ */
+const KEY_DELAY_MS = 5;
+
+keyboard.config.autoDelayMs = KEY_DELAY_MS;
+
+try {
+  keyboard.providerRegistry
+    .getKeyboard()
+    .setKeyboardDelay(KEY_DELAY_MS);
+} catch (err) {
+  console.warn(
+    "Could not shorten the native keyboard delay:",
+    err.message
+  );
+}
 
 
 ipcMain.handle(
@@ -302,6 +328,8 @@ ipcMain.handle(
 
     // Keep one message from typing forever.
     const safeText = text.slice(0, 200);
+
+    console.log("Typing:", JSON.stringify(safeText));
 
     try {
       await keyboard.type(safeText);
