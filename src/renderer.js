@@ -56,6 +56,13 @@ const RTC_CONFIG = {
 // the signaling server sends (it can include a TURN relay).
 let iceServers = RTC_CONFIG.iceServers;
 
+// Testing aid: set true on BOTH Host and Android to prove TURN works.
+// Leave false for normal use.
+const FORCE_RELAY = true;
+
+// ICE candidates from Android can arrive before its SDP answer is applied.
+const pendingRemoteCandidates = [];
+
 startScreenCapture()
   .then((stream) => {
     screenStream = stream;
@@ -191,13 +198,25 @@ async function createPeerConnection() {
     );
   }
 
+  const hasTurnServer = iceServers.some((server) => {
+    const urls = Array.isArray(server?.urls) ? server.urls : [server?.urls];
+    return urls.some((url) => typeof url === "string" && /^turns?:/i.test(url));
+  });
+
+  if (FORCE_RELAY && !hasTurnServer) {
+    throw new Error("TURN-only mode is enabled, but no TURN server was received.");
+  }
+
   // Close any previous connection before creating a new one.
   if (peerConnection) {
     peerConnection.close();
   }
+  pendingRemoteCandidates.length = 0;
 
-  peerConnection =
-    new RTCPeerConnection({ iceServers });
+  peerConnection = new RTCPeerConnection({
+    iceServers,
+    iceTransportPolicy: FORCE_RELAY ? "relay" : "all",
+  });
 
   // Create the DataChannel used for remote control commands.
   controlChannel =
@@ -431,11 +450,32 @@ socket.addEventListener(
       codeEl.textContent =
         msg.code;
 
-      if (
-        Array.isArray(msg.iceServers) &&
-        msg.iceServers.length > 0
-      ) {
-        iceServers = msg.iceServers;
+      const receivedServers = Array.isArray(msg.iceServers)
+        ? msg.iceServers.filter((server) => {
+            const urls = Array.isArray(server?.urls) ? server.urls : [server?.urls];
+            return urls.some((url) =>
+              typeof url === "string" && /^(stun|stuns|turn|turns):/i.test(url)
+            );
+          })
+        : [];
+
+      iceServers = receivedServers.length > 0
+        ? receivedServers
+        : RTC_CONFIG.iceServers;
+
+      const hasTurnServer = iceServers.some((server) => {
+        const urls = Array.isArray(server?.urls) ? server.urls : [server?.urls];
+        return urls.some((url) => typeof url === "string" && /^turns?:/i.test(url));
+      });
+
+      console.log(
+        hasTurnServer
+          ? "TURN configuration received successfully."
+          : "No TURN server received. Using STUN fallback."
+      );
+
+      if (FORCE_RELAY && !hasTurnServer) {
+        statusEl.textContent = "TURN configuration unavailable. Relay-only mode cannot start.";
       }
     }
 
@@ -476,6 +516,16 @@ socket.addEventListener(
             msg.answer
           );
 
+          // Apply any Android ICE candidates that arrived before its answer.
+          for (const candidate of pendingRemoteCandidates) {
+            try {
+              await peerConnection.addIceCandidate(candidate);
+            } catch (err) {
+              console.warn("Failed to add queued Android ICE candidate:", err);
+            }
+          }
+          pendingRemoteCandidates.length = 0;
+
           console.log(
             "Remote description (answer) set."
           );
@@ -493,11 +543,11 @@ socket.addEventListener(
     if (
       msg.type === "ice-candidate"
     ) {
-      if (peerConnection) {
+      if (!peerConnection || !peerConnection.remoteDescription) {
+        pendingRemoteCandidates.push(msg.candidate);
+      } else {
         try {
-          await peerConnection.addIceCandidate(
-            msg.candidate
-          );
+          await peerConnection.addIceCandidate(msg.candidate);
         } catch (err) {
           console.error(
             "Failed to add ICE candidate:",

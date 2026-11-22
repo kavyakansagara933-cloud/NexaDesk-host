@@ -4,12 +4,29 @@
   "description": "Electron host app for NexaDesk - captures the Windows desktop and streams it to a paired client via WebRTC.",
   "main": "src/main.js",
   "scripts": {
-    "start": "electron ."
+    "start": "electron .",
+    "dist": "electron-builder --win"
   },
   "devDependencies": {
-    "electron": "^31.0.0"
+    "electron": "^31.0.0",
+    "electron-builder": "^25.0.0"
   },
   "dependencies": {
     "@nut-tree-fork/nut-js": "^4.2.6"
+  },
+  "build": {
+    "appId": "com.nexadesk.host",
+    "productName": "NexaDesk Host",
+    "npmRebuild": false,
+    "asarUnpack": ["node_modules/@nut-tree-fork/**"],
+    "files": ["src/**", "package.json"],
+    "win": {
+      "target": "nsis",
+      "signAndEditExecutable": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
   }
 }
