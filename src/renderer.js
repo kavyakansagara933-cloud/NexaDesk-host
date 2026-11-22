@@ -52,6 +52,10 @@ const RTC_CONFIG = {
   ],
 };
 
+// Servers used to find a path to the other device. Replaced by the list
+// the signaling server sends (it can include a TURN relay).
+let iceServers = RTC_CONFIG.iceServers;
+
 startScreenCapture()
   .then((stream) => {
     screenStream = stream;
@@ -193,7 +197,7 @@ async function createPeerConnection() {
   }
 
   peerConnection =
-    new RTCPeerConnection(RTC_CONFIG);
+    new RTCPeerConnection({ iceServers });
 
   // Create the DataChannel used for remote control commands.
   controlChannel =
@@ -426,6 +430,13 @@ socket.addEventListener(
 
       codeEl.textContent =
         msg.code;
+
+      if (
+        Array.isArray(msg.iceServers) &&
+        msg.iceServers.length > 0
+      ) {
+        iceServers = msg.iceServers;
+      }
     }
 
     if (
