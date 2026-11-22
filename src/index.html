@@ -1,81 +1,294 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <title>NexaDesk Host</title>
 
   <style>
+    :root {
+      --bg: #0f1014;
+      --card: #171920;
+      --border: #262933;
+      --text: #e8e8ea;
+      --muted: #8a8a9a;
+      --faint: #5f6070;
+      --accent: #7c9eff;
+      --ok: #4ade80;
+      --warn: #fbbf24;
+      --bad: #f87171;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
     body {
-      font-family: -apple-system, "Segoe UI", sans-serif;
-      background: #14151a;
-      color: #e8e8ea;
+      margin: 0;
+      height: 100vh;
+      overflow: hidden;
       display: flex;
       flex-direction: column;
+      gap: 14px;
+      padding: 22px 24px 16px;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, "Segoe UI", sans-serif;
+    }
+
+    /* ---------- Header ---------- */
+
+    header {
+      display: flex;
       align-items: center;
-      justify-content: center;
-      height: 100vh;
-      margin: 0;
+      gap: 10px;
+    }
+
+    .logo {
+      width: 28px;
+      height: 28px;
+      flex: none;
     }
 
     h1 {
-      font-size: 16px;
-      font-weight: 600;
-      color: #9a9ab0;
-      letter-spacing: 0.5px;
-      text-transform: uppercase;
-      margin-bottom: 24px;
+      margin: 0;
+      font-size: 17px;
+      font-weight: 650;
+      letter-spacing: 0.2px;
     }
 
-    #status {
-      font-size: 13px;
-      color: #8a8a9a;
-      margin-bottom: 16px;
+    h1 span {
+      color: var(--muted);
+      font-weight: 500;
     }
 
-    #code {
-      font-size: 42px;
-      font-weight: 700;
-      letter-spacing: 6px;
-      color: #7c9eff;
-      font-family: "Consolas", monospace;
+    /* ---------- Status pill ---------- */
+
+    .status-row {
+      display: flex;
     }
 
-    #hint {
-      font-size: 12px;
-      color: #6a6a7a;
-      margin-top: 20px;
-      max-width: 300px;
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 9px;
+      max-width: 100%;
+      padding: 8px 14px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: var(--card);
+      font-size: 12.5px;
+      color: var(--muted);
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      flex: none;
+      border-radius: 50%;
+      background: var(--warn);
+    }
+
+    .pill[data-state="connecting"] .dot {
+      background: var(--warn);
+      animation: pulse 1.2s ease-in-out infinite;
+    }
+
+    .pill[data-state="waiting"] .dot {
+      background: var(--accent);
+      animation: pulse 1.8s ease-in-out infinite;
+    }
+
+    .pill[data-state="live"] .dot {
+      background: var(--ok);
+    }
+
+    .pill[data-state="error"] .dot {
+      background: var(--bad);
+    }
+
+    .pill[data-state="live"] {
+      color: var(--text);
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+
+    /* ---------- Pairing code card ---------- */
+
+    .code-card {
+      padding: 18px 20px 20px;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: var(--card);
       text-align: center;
     }
 
+    .label {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 1.2px;
+      text-transform: uppercase;
+      color: var(--faint);
+    }
+
+    #code {
+      margin: 10px 0 14px;
+      font-family: "Cascadia Mono", "Consolas", monospace;
+      font-size: 44px;
+      font-weight: 700;
+      letter-spacing: 8px;
+      padding-left: 8px; /* balances the trailing letter-spacing */
+      color: var(--accent);
+      user-select: all;
+    }
+
+    #copyBtn {
+      padding: 8px 18px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: transparent;
+      color: var(--text);
+      font: inherit;
+      font-size: 12.5px;
+      cursor: pointer;
+    }
+
+    #copyBtn:hover:not(:disabled) {
+      border-color: var(--accent);
+    }
+
+    #copyBtn:disabled {
+      opacity: 0.4;
+      cursor: default;
+    }
+
+    #hint {
+      margin: 12px 0 0;
+      font-size: 12px;
+      line-height: 1.5;
+      color: var(--muted);
+    }
+
+    /* ---------- Screen preview ---------- */
+
+    .preview-wrap {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      min-height: 0;
+    }
+
     #preview {
-      margin-top: 20px;
-      width: 320px;
-      border-radius: 6px;
-      border: 1px solid #2a2a35;
-      display: none;
+      width: 100%;
+      height: 110px;
+      object-fit: cover;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: #000;
+      opacity: 0.9;
+    }
+
+    /* ---------- Footer ---------- */
+
+    footer {
+      margin-top: auto;
+      text-align: center;
+      font-size: 11px;
+      color: var(--faint);
     }
   </style>
 </head>
 
 <body>
-  <h1>NexaDesk Host</h1>
+  <header>
+    <svg class="logo" viewBox="0 0 32 32" aria-hidden="true">
+      <rect width="32" height="32" rx="8" fill="#171920" stroke="#262933" />
+      <rect x="6" y="8" width="20" height="13" rx="2.5" fill="none" stroke="#7c9eff" stroke-width="2" />
+      <path d="M12 25h8" stroke="#7c9eff" stroke-width="2" stroke-linecap="round" />
+    </svg>
+    <h1>NexaDesk <span>Host</span></h1>
+  </header>
 
-  <div id="status">
-    Connecting to signaling server...
+  <div class="status-row">
+    <div class="pill" id="pill" data-state="connecting">
+      <span class="dot"></span>
+      <span id="status">Connecting to signaling server...</span>
+    </div>
   </div>
 
-  <div id="code">------</div>
+  <section class="code-card">
+    <div class="label">Pairing code</div>
+    <div id="code">------</div>
+    <button id="copyBtn" disabled>Copy code</button>
+    <p id="hint">Enter this code in the NexaDesk app to pair.</p>
+  </section>
 
-  <div id="hint">
-    Enter this code in the NexaDesk app to pair.
-  </div>
+  <section class="preview-wrap">
+    <div class="label">Screen being shared</div>
+    <video id="preview" autoplay muted></video>
+  </section>
 
-  <video
-    id="preview"
-    autoplay
-    muted
-  ></video>
+  <footer>Encrypted connection · only the paired device can see your screen</footer>
+
+  <script>
+    /*
+      Visual-only behaviour. The app logic lives in renderer.js, which
+      writes into #status and #code. This script watches those two
+      elements and updates how they look.
+    */
+    const pill = document.getElementById("pill");
+    const statusText = document.getElementById("status");
+    const codeText = document.getElementById("code");
+    const copyBtn = document.getElementById("copyBtn");
+
+    // Choose the dot colour from the status message.
+    function updateState() {
+      const text = statusText.textContent;
+      let state = "connecting";
+
+      if (/fail|error|disconnected from signaling/i.test(text)) {
+        state = "error";
+      } else if (/device disconnected|waiting/i.test(text)) {
+        state = "waiting";
+      } else if (/device connected/i.test(text)) {
+        state = "live";
+      }
+
+      pill.dataset.state = state;
+    }
+
+    // Enable the copy button once a real code is shown.
+    function updateCode() {
+      copyBtn.disabled = !/^[A-Z0-9]{6}$/.test(codeText.textContent.trim());
+    }
+
+    new MutationObserver(updateState).observe(statusText, {
+      childList: true,
+      characterData: true,
+      subtree: true,
+    });
+
+    new MutationObserver(updateCode).observe(codeText, {
+      childList: true,
+      characterData: true,
+      subtree: true,
+    });
+
+    copyBtn.addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(codeText.textContent.trim());
+        copyBtn.textContent = "Copied";
+      } catch (err) {
+        copyBtn.textContent = "Select the code and press Ctrl+C";
+      }
+
+      setTimeout(() => {
+        copyBtn.textContent = "Copy code";
+      }, 1600);
+    });
+  </script>
 
   <script src="renderer.js"></script>
 </body>
